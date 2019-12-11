@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function
 import os.path
 from unittest import TestCase
 
-from pip.locations import USER_CACHE_DIR
+from pip_shims import USER_CACHE_DIR
 
 from landinggear.base import LandingGearError
 from landinggear.tests.helpers import tempcache, tempdir

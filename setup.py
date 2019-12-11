@@ -19,7 +19,7 @@ setup(
     license="MIT",
     keywords=["pip", "wheel", "aeroplane", "cache"],
     url="https://github.com/jerith/landinggear",
-    install_requires=["pip", "wheel"],
+    install_requires=["pip", "wheel", "CacheControl", "pip-shims", "vistir"],
     packages=find_packages(),
     include_package_data=True,
     entry_points={

@@ -4,7 +4,8 @@ import os
 import os.path
 from zipfile import BadZipfile, ZipFile
 
-from pip.download import CacheControlAdapter, SafeFileCache
+from cachecontrol import CacheControlAdapter
+from pip_shims import SafeFileCache
 from wheel.pkginfo import read_pkg_info_bytes
 
 from landinggear.base import CachedPackage, CacheExtractor, pip_cache_subdir

@@ -2,8 +2,8 @@ from __future__ import absolute_import, print_function
 
 import os.path
 
-from pip.locations import USER_CACHE_DIR
-from pip.utils import normalize_path
+from pip_shims import USER_CACHE_DIR
+from vistir.path import normalize_path
 
 
 class LandingGearError(Exception):
