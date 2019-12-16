@@ -3,6 +3,7 @@ from __future__ import absolute_import, print_function
 import os
 import os.path
 from zipfile import BadZipfile, ZipFile
+from tarfile import TarError, open as tarfile_open
 
 from cachecontrol import CacheControlAdapter
 from pip_shims import SafeFileCache
@@ -18,9 +19,7 @@ except ImportError:
 
 class HTTPCacheExtractor(CacheExtractor):
     """
-    Extracts wheels from the HTTP cache.
-
-    TODO: Support non-wheels?
+    Extracts tarballs and wheels from the HTTP cache.
     """
 
     def __init__(self, pip_cache_dir=None):
@@ -41,7 +40,10 @@ class CachedResponse(CachedPackage):
         self.resp_data = self.get_resp_data()
 
     def get_package_filename(self):
-        return self.get_wheel_filename()
+        wheel_filename = self.get_wheel_filename()
+        if wheel_filename:
+            return wheel_filename
+        return self.get_tarball_filename()
 
     def get_package_data(self):
         return self.get_resp_data()
@@ -54,6 +56,25 @@ class CachedResponse(CachedPackage):
         if resp is not None:
             return resp.read(decode_content=True)
         return None
+
+    def get_tarball_filename(self):
+        for compression in ["gz", "bz2", "xz"]:
+            try:
+                tarfile = tarfile_open(mode="r:"+compression,
+                                       fileobj=BytesIO(self.resp_data))
+                break
+            except TarError:
+                pass
+        else:
+            # The response was not a tarball
+            return None
+        try:
+            first_entry = tarfile.next()
+        except TarError:
+            # The tarball was empty
+            return None
+        path = first_entry.name.rsplit('/')[0]
+        return "{}.tar.{}".format(path, compression)
 
     def get_wheel_filename(self):
         try:
