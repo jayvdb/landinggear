@@ -10,15 +10,6 @@ from landinggear.tests.helpers import tempcache, tempdir
 from landinggear.wheelcache import WheelCacheExtractor
 
 
-def writefile(basedir, filepath, content=None):
-    fullpath = os.path.join(basedir, *filepath.split("/"))
-    os.makedirs(os.path.dirname(fullpath))
-    with open(fullpath, "wb") as f:
-        if content is not None:
-            f.write("")
-    return os.path.realpath(fullpath)
-
-
 class TestWheelCache(TestCase):
 
     def test_default_pip_cache(self):
