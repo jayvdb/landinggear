@@ -9,7 +9,12 @@ from cachecontrol import CacheControlAdapter
 from pip_shims import SafeFileCache
 from wheel.pkginfo import read_pkg_info_bytes
 
-from landinggear.base import CachedPackage, CacheExtractor, pip_cache_subdir
+from landinggear.base import (
+    CachedPackage,
+    CacheExtractor,
+    LandingGearError,
+    pip_cache_subdir,
+)
 
 try:
     from io import BytesIO
@@ -24,6 +29,8 @@ class HTTPCacheExtractor(CacheExtractor):
 
     def __init__(self, pip_cache_dir=None):
         self.http_cache_dir = pip_cache_subdir("http", pip_cache_dir)
+        if pip_cache_dir is not None and not os.path.isdir(pip_cache_dir):
+            raise LandingGearError("Missing pip cache: %s" % (pip_cache_dir,))
         self.adapter = CacheControlAdapter(SafeFileCache(self.http_cache_dir))
         self.serializer = self.adapter.controller.serializer
 
@@ -40,10 +47,7 @@ class CachedResponse(CachedPackage):
         self.resp_data = self.get_resp_data()
 
     def get_package_filename(self):
-        wheel_filename = self.get_wheel_filename()
-        if wheel_filename:
-            return wheel_filename
-        return self.get_tarball_filename()
+        return self.get_zip_filename() or self.get_tarball_filename()
 
     def get_package_data(self):
         return self.get_resp_data()
@@ -60,8 +64,9 @@ class CachedResponse(CachedPackage):
     def get_tarball_filename(self):
         for compression in ["gz", "bz2", "xz"]:
             try:
-                tarfile = tarfile_open(mode="r:"+compression,
-                                       fileobj=BytesIO(self.resp_data))
+                tarfile = tarfile_open(
+                    mode="r:" + compression, fileobj=BytesIO(self.resp_data)
+                )
                 break
             except TarError:
                 pass
@@ -73,15 +78,21 @@ class CachedResponse(CachedPackage):
         except TarError:
             # The tarball was empty
             return None
-        path = first_entry.name.rsplit('/')[0]
+        path = first_entry.name.rsplit("/")[0]
         return "{}.tar.{}".format(path, compression)
 
     def get_wheel_filename(self):
+        filename = self.get_zip_filename()
+        if filename.endswith(".whl"):
+            return filename
+
+    def get_zip_filename(self):
         try:
             zipfile = ZipFile(BytesIO(self.resp_data))
         except BadZipfile:
             # The response was not a zipfile and therefore not a wheel.
             return None
+        first_dir = None
         for zipinfo in zipfile.infolist():
             dirname, filename = os.path.split(zipinfo.filename)
             if filename == "WHEEL" and dirname.endswith(".dist-info"):
@@ -91,6 +102,9 @@ class CachedResponse(CachedPackage):
                 return "%s-%s.whl" % (
                     dirname[:-len(".dist-info")],
                     self._collect_tags(zipfile.read(zipinfo)))
+            if not first_dir:
+                first_dir = dirname
+        return "{}.zip".format(first_dir)
 
     def _collect_tags(self, wheel_metadata):
         pyver, abi, plat = set(), set(), set()
